@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gemini Live Translate Practice</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --text: #172033;
+        --muted: #667085;
+        --line: #d9deea;
+        --accent: #2257d7;
+        --accent-strong: #1741a6;
+        --danger: #b42318;
+        --ok: #087443;
+        --warn: #8a4b00;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        width: min(1120px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 24px 0 32px;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      .status {
+        min-width: 190px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .status[data-state="ready"],
+      .status[data-state="listening"] {
+        color: var(--ok);
+      }
+
+      .status[data-state="error"] {
+        color: var(--danger);
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1.5fr 190px 150px 170px auto auto;
+        gap: 10px;
+        align-items: end;
+        padding: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      input,
+      select,
+      button {
+        min-height: 40px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        font: inherit;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        background: #fff;
+        color: var(--text);
+      }
+
+      button {
+        padding: 0 16px;
+        cursor: pointer;
+        background: #fff;
+        color: var(--text);
+      }
+
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      button.primary:hover {
+        background: var(--accent-strong);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .options {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 12px 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .options label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .options input {
+        min-height: auto;
+        width: auto;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .panel {
+        min-height: 360px;
+        padding: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 10px;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .transcript {
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f1f4f9;
+        white-space: pre-wrap;
+        line-height: 1.6;
+      }
+
+      .meter {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+        color: var(--muted);
+      }
+
+      .bar {
+        height: 10px;
+        border-radius: 999px;
+        background: #e3e7ef;
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        width: 0%;
+        height: 100%;
+        background: var(--accent);
+      }
+
+      .note {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .warning {
+        color: var(--warn);
+      }
+
+      @media (max-width: 900px) {
+        header,
+        .toolbar,
+        .grid {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Gemini Live Translate Practice</h1>
+          <p class="subtitle">Top-level browser frontend. Apps Script issues short-lived Gemini Live tokens.</p>
+        </div>
+        <div id="status" class="status" data-state="idle">Idle</div>
+      </header>
+
+      <section class="toolbar" aria-label="Practice controls">
+        <label>
+          GAS Web App URL
+          <input id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        </label>
+        <label>
+          Access key
+          <input id="accessKey" type="password" autocomplete="current-password" placeholder="Private access key">
+        </label>
+        <label>
+          Target language
+          <select id="targetLanguage">
+            <option value="en">English (en)</option>
+            <option value="ja">Japanese (ja)</option>
+            <option value="ko">Korean (ko)</option>
+            <option value="zh-Hant">Traditional Chinese (zh-Hant)</option>
+            <option value="zh-Hans">Simplified Chinese (zh-Hans)</option>
+            <option value="es">Spanish (es)</option>
+            <option value="fr">French (fr)</option>
+            <option value="de">German (de)</option>
+            <option value="it">Italian (it)</option>
+            <option value="pt-BR">Portuguese Brazil (pt-BR)</option>
+            <option value="th">Thai (th)</option>
+            <option value="vi">Vietnamese (vi)</option>
+          </select>
+        </label>
+        <label>
+          Echo mode
+          <select id="echoTargetLanguage">
+            <option value="true">Echo target language</option>
+            <option value="false">Do not echo target</option>
+          </select>
+        </label>
+        <button id="startBtn" class="primary" type="button">Start</button>
+        <button id="stopBtn" type="button" disabled>Stop</button>
+      </section>
+
+      <section class="options" aria-label="Local storage options">
+        <label>
+          <input id="rememberGasUrl" type="checkbox" checked>
+          Remember GAS URL on this device
+        </label>
+        <label>
+          <input id="rememberAccessKey" type="checkbox">
+          Remember access key on this device
+        </label>
+        <button id="clearLocalBtn" type="button">Clear saved local settings</button>
+      </section>
+
+      <div class="meter">
+        <span>Mic level</span>
+        <div class="bar" aria-hidden="true"><span id="levelBar"></span></div>
+      </div>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Your speech</h2>
+          <div id="inputTranscript" class="transcript"></div>
+        </article>
+        <article class="panel">
+          <h2>Gemini translation</h2>
+          <div id="outputTranscript" class="transcript"></div>
+        </article>
+      </section>
+
+      <p class="note">
+        This page stores values only in your browser localStorage. Do not use "remember access key" on a shared computer.
+      </p>
+    </main>
+
+    <script>
+      const MODEL_NAME = 'gemini-3.5-live-translate-preview';
+      const WS_BASE_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
+      const INPUT_SAMPLE_RATE = 16000;
+      const OUTPUT_SAMPLE_RATE = 24000;
+      const CHUNK_MS = 100;
+      const CHUNK_SAMPLES = Math.floor(INPUT_SAMPLE_RATE * CHUNK_MS / 1000);
+      const STORAGE = {
+        gasUrl: 'geminiLiveTranslate.gasUrl',
+        accessKey: 'geminiLiveTranslate.accessKey',
+        rememberAccessKey: 'geminiLiveTranslate.rememberAccessKey',
+      };
+
+      const state = {
+        websocket: null,
+        mediaStream: null,
+        audioContext: null,
+        sourceNode: null,
+        processorNode: null,
+        playbackContext: null,
+        nextPlaybackTime: 0,
+        resampleRemainder: [],
+        inputChunk: [],
+        inputTranscript: '',
+        outputTranscript: '',
+        isReadyForAudio: false,
+      };
+
+      const els = {
+        status: document.getElementById('status'),
+        gasUrl: document.getElementById('gasUrl'),
+        accessKey: document.getElementById('accessKey'),
+        targetLanguage: document.getElementById('targetLanguage'),
+        echoTargetLanguage: document.getElementById('echoTargetLanguage'),
+        startBtn: document.getElementById('startBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        rememberGasUrl: document.getElementById('rememberGasUrl'),
+        rememberAccessKey: document.getElementById('rememberAccessKey'),
+        clearLocalBtn: document.getElementById('clearLocalBtn'),
+        inputTranscript: document.getElementById('inputTranscript'),
+        outputTranscript: document.getElementById('outputTranscript'),
+        levelBar: document.getElementById('levelBar'),
+      };
+
+      hydrateLocalSettings();
+      els.startBtn.addEventListener('click', startPractice);
+      els.stopBtn.addEventListener('click', stopPractice);
+      els.clearLocalBtn.addEventListener('click', clearLocalSettings);
+      window.addEventListener('beforeunload', stopPractice);
+
+      function hydrateLocalSettings() {
+        els.gasUrl.value = localStorage.getItem(STORAGE.gasUrl) || '';
+        const rememberedAccessKey = localStorage.getItem(STORAGE.accessKey) || '';
+        const shouldRememberAccessKey = localStorage.getItem(STORAGE.rememberAccessKey) === 'true';
+        els.rememberAccessKey.checked = shouldRememberAccessKey;
+        els.accessKey.value = shouldRememberAccessKey ? rememberedAccessKey : '';
+      }
+
+      function persistLocalSettings() {
+        if (els.rememberGasUrl.checked) {
+          localStorage.setItem(STORAGE.gasUrl, normalizeGasUrl(els.gasUrl.value));
+        } else {
+          localStorage.removeItem(STORAGE.gasUrl);
+        }
+
+        localStorage.setItem(STORAGE.rememberAccessKey, String(els.rememberAccessKey.checked));
+        if (els.rememberAccessKey.checked) {
+          localStorage.setItem(STORAGE.accessKey, els.accessKey.value);
+        } else {
+          localStorage.removeItem(STORAGE.accessKey);
+        }
+      }
+
+      function clearLocalSettings() {
+        localStorage.removeItem(STORAGE.gasUrl);
+        localStorage.removeItem(STORAGE.accessKey);
+        localStorage.removeItem(STORAGE.rememberAccessKey);
+        els.gasUrl.value = '';
+        els.accessKey.value = '';
+        els.rememberAccessKey.checked = false;
+        setStatus('idle', 'Saved settings cleared');
+      }
+
+      async function startPractice() {
+        resetTranscripts();
+        setControls(false);
+        setStatus('idle', 'Requesting short-lived token...');
+
+        try {
+          const gasUrl = normalizeGasUrl(els.gasUrl.value);
+          persistLocalSettings();
+          const tokenInfo = await requestTokenJsonp(gasUrl, {
+            accessKey: els.accessKey.value,
+            targetLanguageCode: els.targetLanguage.value,
+            echoTargetLanguage: els.echoTargetLanguage.value === 'true',
+          });
+          await openLiveSession(tokenInfo);
+        } catch (error) {
+          setStatus('error', error.message || String(error));
+          await stopPractice();
+        }
+      }
+
+      function requestTokenJsonp(gasUrl, input) {
+        return new Promise((resolve, reject) => {
+          const callbackName = `__geminiLiveToken_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement('script');
+          const timeout = window.setTimeout(() => {
+            cleanup();
+            reject(new Error('Token request timed out. Check GAS deployment access.'));
+          }, 20000);
+
+          window[callbackName] = (response) => {
+            cleanup();
+            if (!response || !response.ok) {
+              reject(new Error(response && response.error ? response.error : 'Token request failed.'));
+              return;
+            }
+            resolve(response.data);
+          };
+
+          script.onerror = () => {
+            cleanup();
+            reject(new Error('Could not load GAS token endpoint. Check Web App URL and access setting.'));
+          };
+
+          const url = new URL(gasUrl);
+          url.searchParams.set('mode', 'token');
+          url.searchParams.set('callback', callbackName);
+          url.searchParams.set('accessKey', input.accessKey);
+          url.searchParams.set('targetLanguageCode', input.targetLanguageCode);
+          url.searchParams.set('echoTargetLanguage', String(input.echoTargetLanguage));
+          script.src = url.toString();
+          document.head.appendChild(script);
+
+          function cleanup() {
+            window.clearTimeout(timeout);
+            delete window[callbackName];
+            script.remove();
+          }
+        });
+      }
+
+      async function openLiveSession(tokenInfo) {
+        state.playbackContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+        state.nextPlaybackTime = state.playbackContext.currentTime;
+
+        const url = `${WS_BASE_URL}?access_token=${encodeURIComponent(tokenInfo.token)}`;
+        state.websocket = new WebSocket(url);
+
+        state.websocket.onopen = () => {
+          setStatus('ready', 'WebSocket connected');
+          sendSetup(tokenInfo);
+        };
+        state.websocket.onmessage = (event) => handleServerMessage(event.data);
+        state.websocket.onerror = () => setStatus('error', 'WebSocket error');
+        state.websocket.onclose = () => {
+          if (state.mediaStream) setStatus('idle', 'Connection closed');
+        };
+      }
+
+      function sendSetup(tokenInfo) {
+        state.websocket.send(JSON.stringify({
+          setup: {
+            model: `models/${MODEL_NAME}`,
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              translationConfig: {
+                targetLanguageCode: tokenInfo.targetLanguageCode,
+                echoTargetLanguage: tokenInfo.echoTargetLanguage,
+              },
+            },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
+          },
+        }));
+      }
+
+      async function beginMicrophone() {
+        state.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        state.audioContext = new AudioContext();
+        state.sourceNode = state.audioContext.createMediaStreamSource(state.mediaStream);
+        state.processorNode = state.audioContext.createScriptProcessor(4096, 1, 1);
+        state.processorNode.onaudioprocess = handleAudioProcess;
+        state.sourceNode.connect(state.processorNode);
+        state.processorNode.connect(state.audioContext.destination);
+        setStatus('listening', 'Listening');
+      }
+
+      function handleAudioProcess(event) {
+        if (!state.isReadyForAudio || !isWebSocketOpen()) return;
+
+        const input = event.inputBuffer.getChannelData(0);
+        updateLevel(input);
+        const samples = resampleTo16k(input, state.audioContext.sampleRate);
+        for (let i = 0; i < samples.length; i += 1) {
+          state.inputChunk.push(samples[i]);
+          if (state.inputChunk.length >= CHUNK_SAMPLES) {
+            const chunk = state.inputChunk.splice(0, CHUNK_SAMPLES);
+            sendAudioChunk(floatToPcm16Base64(chunk));
+          }
+        }
+      }
+
+      function sendAudioChunk(base64Audio) {
+        if (!isWebSocketOpen()) return;
+        state.websocket.send(JSON.stringify({
+          realtimeInput: {
+            audio: {
+              data: base64Audio,
+              mimeType: 'audio/pcm;rate=16000',
+            },
+          },
+        }));
+      }
+
+      async function handleServerMessage(raw) {
+        const text = await readWebSocketPayload(raw);
+        const message = JSON.parse(text);
+
+        if (message.setupComplete) {
+          state.isReadyForAudio = true;
+          beginMicrophone().catch((error) => {
+            setStatus('error', error.message || String(error));
+            stopPractice();
+          });
+          return;
+        }
+
+        const content = message.serverContent;
+        if (!content) return;
+
+        if (content.interrupted) {
+          state.nextPlaybackTime = state.playbackContext ? state.playbackContext.currentTime : 0;
+        }
+
+        if (content.inputTranscription && content.inputTranscription.text) {
+          appendTranscript('input', content.inputTranscription.text);
+        }
+
+        if (content.outputTranscription && content.outputTranscription.text) {
+          appendTranscript('output', content.outputTranscription.text);
+        }
+
+        const parts = content.modelTurn && content.modelTurn.parts ? content.modelTurn.parts : [];
+        for (const part of parts) {
+          if (part.inlineData && part.inlineData.data) {
+            playPcm24k(part.inlineData.data);
+          }
+        }
+      }
+
+      async function stopPractice() {
+        setControls(true);
+        state.isReadyForAudio = false;
+
+        if (isWebSocketOpen()) {
+          state.websocket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+        }
+        if (state.websocket) {
+          state.websocket.close();
+          state.websocket = null;
+        }
+        if (state.processorNode) {
+          state.processorNode.disconnect();
+          state.processorNode = null;
+        }
+        if (state.sourceNode) {
+          state.sourceNode.disconnect();
+          state.sourceNode = null;
+        }
+        if (state.mediaStream) {
+          for (const track of state.mediaStream.getTracks()) track.stop();
+          state.mediaStream = null;
+        }
+        if (state.audioContext) {
+          await state.audioContext.close().catch(() => {});
+          state.audioContext = null;
+        }
+
+        els.levelBar.style.width = '0%';
+        setStatus('idle', 'Stopped');
+      }
+
+      async function readWebSocketPayload(payload) {
+        if (typeof payload === 'string') return payload;
+        if (payload instanceof Blob) return await payload.text();
+        if (payload instanceof ArrayBuffer) {
+          return new TextDecoder('utf-8').decode(new Uint8Array(payload));
+        }
+        throw new Error(`Unsupported WebSocket payload: ${Object.prototype.toString.call(payload)}`);
+      }
+
+      function appendTranscript(kind, text) {
+        const clean = String(text || '').trim();
+        if (!clean) return;
+        if (kind === 'input') {
+          state.inputTranscript = appendText(state.inputTranscript, clean);
+          els.inputTranscript.textContent = state.inputTranscript;
+          els.inputTranscript.scrollTop = els.inputTranscript.scrollHeight;
+        } else {
+          state.outputTranscript = appendText(state.outputTranscript, clean);
+          els.outputTranscript.textContent = state.outputTranscript;
+          els.outputTranscript.scrollTop = els.outputTranscript.scrollHeight;
+        }
+      }
+
+      function appendText(existing, next) {
+        return existing ? `${existing}\n${next}` : next;
+      }
+
+      function resetTranscripts() {
+        state.inputTranscript = '';
+        state.outputTranscript = '';
+        state.inputChunk = [];
+        state.resampleRemainder = [];
+        els.inputTranscript.textContent = '';
+        els.outputTranscript.textContent = '';
+      }
+
+      function resampleTo16k(input, sourceRate) {
+        const merged = state.resampleRemainder.length
+          ? state.resampleRemainder.concat(Array.from(input))
+          : Array.from(input);
+        const ratio = sourceRate / INPUT_SAMPLE_RATE;
+        const outputLength = Math.floor(merged.length / ratio);
+        const output = new Array(outputLength);
+        for (let i = 0; i < outputLength; i += 1) {
+          const position = i * ratio;
+          const left = Math.floor(position);
+          const right = Math.min(left + 1, merged.length - 1);
+          const fraction = position - left;
+          output[i] = merged[left] + (merged[right] - merged[left]) * fraction;
+        }
+        const consumed = Math.floor(outputLength * ratio);
+        state.resampleRemainder = merged.slice(consumed);
+        return output;
+      }
+
+      function floatToPcm16Base64(samples) {
+        const buffer = new ArrayBuffer(samples.length * 2);
+        const view = new DataView(buffer);
+        for (let i = 0; i < samples.length; i += 1) {
+          const sample = Math.max(-1, Math.min(1, samples[i]));
+          view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        }
+        return arrayBufferToBase64(buffer);
+      }
+
+      function playPcm24k(base64Audio) {
+        if (!state.playbackContext) return;
+        const bytes = base64ToUint8Array(base64Audio);
+        const samples = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+        const audioBuffer = state.playbackContext.createBuffer(1, samples.length, OUTPUT_SAMPLE_RATE);
+        const channel = audioBuffer.getChannelData(0);
+        for (let i = 0; i < samples.length; i += 1) {
+          channel[i] = samples[i] / 32768;
+        }
+
+        const source = state.playbackContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(state.playbackContext.destination);
+        const startTime = Math.max(state.playbackContext.currentTime, state.nextPlaybackTime);
+        source.start(startTime);
+        state.nextPlaybackTime = startTime + audioBuffer.duration;
+      }
+
+      function updateLevel(samples) {
+        let sum = 0;
+        for (let i = 0; i < samples.length; i += 1) sum += samples[i] * samples[i];
+        const rms = Math.sqrt(sum / samples.length);
+        const percent = Math.max(0, Math.min(100, Math.round(rms * 250)));
+        els.levelBar.style.width = `${percent}%`;
+      }
+
+      function arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+      }
+
+      function base64ToUint8Array(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function normalizeGasUrl(value) {
+        const url = String(value || '').trim();
+        if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) {
+          throw new Error('Paste the Apps Script Web App /exec URL.');
+        }
+        return url;
+      }
+
+      function isWebSocketOpen() {
+        return state.websocket && state.websocket.readyState === WebSocket.OPEN;
+      }
+
+      function setControls(isIdle) {
+        els.startBtn.disabled = !isIdle;
+        els.stopBtn.disabled = isIdle;
+        els.gasUrl.disabled = !isIdle;
+        els.accessKey.disabled = !isIdle;
+        els.targetLanguage.disabled = !isIdle;
+        els.echoTargetLanguage.disabled = !isIdle;
+        els.rememberGasUrl.disabled = !isIdle;
+        els.rememberAccessKey.disabled = !isIdle;
+      }
+
+      function setStatus(stateName, text) {
+        els.status.dataset.state = stateName;
+        els.status.textContent = text;
+      }
+    </script>
+  </body>
+</html>

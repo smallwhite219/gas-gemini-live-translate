@@ -1,0 +1,12 @@
+.DS_Store
+Thumbs.db
+.env
+.env.*
+*.local
+secrets/
+.secrets/
+token*
+credential*
+cookie*
+apikey*
+api-key*
